@@ -1,0 +1,16 @@
+services:
+  postgres:
+    container_name: church-saas-pg
+    image: postgres:16-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: church_saas
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
