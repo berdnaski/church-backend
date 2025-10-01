@@ -36,7 +36,7 @@ export class AuthRepository {
   async findUserByEmailAndTenant(
     email: string,
     tenantSlug: string,
-  ): Promise<User & { roles: UserRole[] } | null> {
+  ): Promise<(User & { roles: UserRole[] }) | null> {
     return this.prismaService.user.findFirst({
       where: {
         email: email.toLowerCase(),
@@ -44,6 +44,44 @@ export class AuthRepository {
         isActive: true,
       },
       include: { roles: true, tenant: true },
+    });
+  }
+
+  async findInviteCode(code: string) {
+    return this.prismaService.inviteCode.findFirst({
+      where: { code, isActive: true },
+    });
+  }
+
+  async deactivateInviteCode(codeId: string) {
+    return this.prismaService.inviteCode.update({
+      where: { id: codeId },
+      data: { isActive: false },
+    });
+  }
+
+  async findTenantBySlug(slug: string) {
+    return this.prismaService.tenant.findFirst({
+      where: { slug, isActive: true },
+    });
+  }
+
+  async createMember(data: {
+    name: string;
+    email: string;
+    password: string;
+    tenantId: string;
+  }): Promise<User & { roles: UserRole[] }> {
+    return this.prismaService.user.create({
+      data: {
+        name: data.name,
+        email: data.email.toLowerCase(),
+        password: data.password,
+        tenantId: data.tenantId,
+        isActive: true,
+        roles: { create: [{ role: 'MEMBER' }] },
+      },
+      include: { roles: true },
     });
   }
 }

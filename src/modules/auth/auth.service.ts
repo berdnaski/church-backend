@@ -1,13 +1,15 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { JwtPayload } from "./interfaces/jwt-payload.interface";
-import { UserEntity } from "./entities/user.entity";
-import { LoginDto } from "./dto/login.dto";
-import { AuthResponse } from "./interfaces/auth-response.interface";
-import { AuthRepository } from "./auth.repository";
-import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from "@nestjs/config";
-import { RegisterChurchDto } from "./dto/register-church.dto";
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+
+import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { UserEntity } from './entities/user.entity';
+import { LoginDto } from './dto/login.dto';
+import { AuthResponse } from './interfaces/auth-response.interface';
+import { AuthRepository } from './auth.repository';
+import { RegisterChurchDto } from './dto/register-church.dto';
+import { RegisterMemberDto } from './dto/register-member.dto';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +18,53 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
+
+  async registerMember(dto: RegisterMemberDto) {
+    let tenantId: string;
+
+    if (dto.inviteCode) {
+      const code = await this.authRepository.findInviteCode(dto.inviteCode);
+      if (!code || !code.isActive || (code.expiresAt && code.expiresAt < new Date())) {
+        throw new BadRequestException('Código de convite inválido ou expirado.');
+      }
+      tenantId = code.tenantId;
+    } else if (dto.tenantSlug) {
+      const tenant = await this.authRepository.findTenantBySlug(dto.tenantSlug);
+      if (!tenant || !tenant.isActive) {
+        throw new BadRequestException('Tenant inválido ou inativo.');
+      }
+
+      if (!tenant.isPublic) {
+        throw new BadRequestException('Este tenant requer um código de convite para registro.');
+      }
+
+      tenantId = tenant.id;
+    } else {
+      throw new BadRequestException('Informe o inviteCode ou tenantSlug.');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const user = await this.authRepository.createMember({
+      name: dto.name,
+      email: dto.email,
+      password: hashedPassword,
+      tenantId,
+    });
+
+    const tokenPayload: JwtPayload = {
+      sub: user.id,
+      tenantId,
+      roles: user.roles.map((r) => r.role),
+      email: user.email,
+    };
+
+    const token = this.jwtService.sign(tokenPayload);
+
+    return {
+      token,
+      user: UserEntity.fromPrisma(user),
+    };
+  }
 
   async registerChurch(dto: RegisterChurchDto): Promise<AuthResponse> {
     const tenant = await this.authRepository.createTenant(dto.tenantName, dto.tenantSlug);
@@ -44,17 +93,14 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = await this.authRepository.findUserByEmailAndTenant(
-      dto.email, 
-      dto.tenantSlug
-    );
-    
+    const user = await this.authRepository.findUserByEmailAndTenant(dto.email, dto.tenantSlug);
+
     if (!user) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
     await this.validatePassword(dto.password, user.password);
-    
+
     const userEntity = UserEntity.fromPrisma(user);
     const token = this.generateToken({
       sub: userEntity.id,

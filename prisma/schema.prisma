@@ -12,8 +12,10 @@ model Tenant {
   name      String
   slug      String   @unique
   isActive  Boolean  @default(true)
+  isPublic Boolean   @default(true)
   users     User[]
   departments Department[]
+  inviteCodes InviteCode[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -49,4 +51,15 @@ model UserRole {
   department   Department? @relation(fields: [departmentId], references: [id])
   departmentId String?
   role         String
+}
+
+model InviteCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenantId  String
+  expiresAt DateTime?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
