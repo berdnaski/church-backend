@@ -105,4 +105,23 @@ export class DepartmentController {
   getDepartmentUsers(@Request() req, @Param('id') id: string) {
     return this.departmentService.getDepartmentUsers(id, req.user.tenantId);
   }
+
+  @Get(':id/categories/:categoryId/subcategories')
+  @Roles('ADMIN', 'MEMBER')
+  @ApiOperation({
+    summary: 'Listar subcategorias de uma categoria específica para um departamento',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de subcategorias retornada com sucesso' })
+  @ApiResponse({ status: 404, description: 'Departamento ou categoria não encontrada' })
+  findSubcategoriesByCategory(
+    @Request() req,
+    @Param('id') departmentId: string,
+    @Param('categoryId') categoryId: string,
+  ) {
+    return this.departmentService.findSubcategoriesByCategory(
+      departmentId,
+      categoryId,
+      req.user.tenantId,
+    );
+  }
 }

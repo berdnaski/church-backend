@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from 'src/database/prisma.service';
 
 import { DepartmentRepository } from './department.repository';
 import { CreateDepartmentDto } from './dto/create-department.dto';
@@ -8,7 +9,10 @@ import { AddUserToDepartmentDto } from './dto/add-user-to-department.dto';
 
 @Injectable()
 export class DepartmentService {
-  constructor(private departmentRepository: DepartmentRepository) {}
+  constructor(
+    private departmentRepository: DepartmentRepository,
+    private prisma: PrismaService,
+  ) {}
 
   async create(
     tenantId: string,
@@ -76,5 +80,34 @@ export class DepartmentService {
     }
 
     return this.departmentRepository.getDepartmentUsers(departmentId);
+  }
+
+  async findSubcategoriesByCategory(
+    departmentId: string,
+    categoryId: string,
+    tenantId: string,
+  ): Promise<any[]> {
+    const department = await this.findOne(departmentId, tenantId);
+    if (!department) {
+      throw new NotFoundException('Departamento não encontrado');
+    }
+    const categoryDepartment = await this.prisma.categoryDepartment.findFirst({
+      where: {
+        departmentId,
+        categoryId,
+      },
+    });
+
+    if (!categoryDepartment) {
+      throw new NotFoundException('Categoria não está associada a este departamento');
+    }
+
+    const subcategories = await this.prisma.subcategory.findMany({
+      where: {
+        categoryId,
+      },
+    });
+
+    return subcategories;
   }
 }

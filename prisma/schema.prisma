@@ -8,58 +8,121 @@ generator client {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  isActive  Boolean  @default(true)
-  isPublic Boolean   @default(true)
-  users     User[]
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  isActive    Boolean      @default(true)
+  isPublic    Boolean      @default(true)
+  users       User[]
   departments Department[]
   inviteCodes InviteCode[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  categories  Category[]   // Adicionado: categorias pertencem a um tenant
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String           @id @default(cuid())
+  email     String           @unique
   name      String
   password  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
   tenantId  String
   roles     UserRole[]
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  memberFunctions MemberFunction[] // Adicionado: funções específicas do membro
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }
 
 model Department {
-  id        String     @id @default(cuid())
+  id        String           @id @default(cuid())
   name      String
-  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
   tenantId  String
   features  Json
   roles     UserRole[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  categories CategoryDepartment[] // Adicionado: categorias disponíveis neste departamento
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }
 
 model UserRole {
-  id           String     @id @default(cuid())
-  user         User       @relation(fields: [userId], references: [id])
+  id           String      @id @default(cuid())
+  user         User        @relation(fields: [userId], references: [id])
   userId       String
   department   Department? @relation(fields: [departmentId], references: [id])
   departmentId String?
   role         String
 }
 
+// Nova tabela: Categorias (ex: Músico, Mídia, Obreiro)
+model Category {
+  id          String               @id @default(cuid())
+  name        String
+  description String?
+  tenant      Tenant?              @relation(fields: [tenantId], references: [id])
+  tenantId    String?
+  subcategories Subcategory[]      // Relação com subcategorias
+  departments CategoryDepartment[] // Relação com departamentos
+  memberFunctions MemberFunction[] // Relação com funções de membros
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([name, tenantId]) // Uma categoria deve ter nome único dentro de um tenant
+}
+
+// Nova tabela: Subcategorias (ex: Guitarra, Fotógrafo, Recepção)
+model Subcategory {
+  id          String               @id @default(cuid())
+  name        String
+  description String?
+  category    Category             @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  memberFunctions MemberFunction[] // Relação com funções de membros
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([name, categoryId]) // Uma subcategoria deve ter nome único dentro de uma categoria
+}
+
+// Nova tabela: Relação entre Categorias e Departamentos
+model CategoryDepartment {
+  id           String     @id @default(cuid())
+  category     Category   @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  department   Department @relation(fields: [departmentId], references: [id])
+  departmentId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([categoryId, departmentId]) // Evita duplicatas
+}
+
+// Nova tabela: Funções específicas de um membro
+model MemberFunction {
+  id            String       @id @default(cuid())
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String
+  category      Category     @relation(fields: [categoryId], references: [id])
+  categoryId    String
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+  subcategoryId String?
+  notes         String?      // Observações adicionais sobre a função
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([userId, categoryId, subcategoryId]) // Um usuário só pode ter uma função específica uma vez
+}
+
 model InviteCode {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  id        String    @id @default(cuid())
+  code      String    @unique
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
   tenantId  String
   expiresAt DateTime?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }

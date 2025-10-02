@@ -9,6 +9,10 @@ import { InviteCodeModule } from './modules/tenant/invite-code/invite-code.modul
 import { JwtAuthGuard } from './common/guards/jwt-auth-guard';
 import { UserModule } from './modules/user/user.module';
 import { DepartmentModule } from './modules/department/department.module';
+import { CategoryModule } from './modules/category/category.module';
+import { SubcategoryModule } from './modules/subcategory/subcategory.module';
+import { CategoryDepartmentModule } from './modules/category-department/category-department.module';
+import { MemberFunctionModule } from './modules/member-function/member-function.module';
 
 @Module({
   imports: [
@@ -22,8 +26,11 @@ import { DepartmentModule } from './modules/department/department.module';
     InviteCodeModule,
     UserModule,
     DepartmentModule,
+    CategoryModule,
+    SubcategoryModule,
+    CategoryDepartmentModule,
+    MemberFunctionModule,
   ],
-  controllers: [],
   providers: [
     {
       provide: APP_GUARD,
