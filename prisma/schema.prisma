@@ -16,7 +16,8 @@ model Tenant {
   users       User[]
   departments Department[]
   inviteCodes InviteCode[]
-  categories  Category[]   // Adicionado: categorias pertencem a um tenant
+  categories  Category[]  
+  schedules   Schedule[] 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -29,7 +30,8 @@ model User {
   tenant    Tenant           @relation(fields: [tenantId], references: [id])
   tenantId  String
   roles     UserRole[]
-  memberFunctions MemberFunction[] // Adicionado: funções específicas do membro
+  memberFunctions MemberFunction[]
+  scheduleMembers ScheduleMember[] 
   isActive  Boolean          @default(true)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -42,7 +44,8 @@ model Department {
   tenantId  String
   features  Json
   roles     UserRole[]
-  categories CategoryDepartment[] // Adicionado: categorias disponíveis neste departamento
+  categories CategoryDepartment[] 
+  schedules Schedule[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 }
@@ -56,37 +59,35 @@ model UserRole {
   role         String
 }
 
-// Nova tabela: Categorias (ex: Músico, Mídia, Obreiro)
 model Category {
   id          String               @id @default(cuid())
   name        String
   description String?
   tenant      Tenant?              @relation(fields: [tenantId], references: [id])
   tenantId    String?
-  subcategories Subcategory[]      // Relação com subcategorias
-  departments CategoryDepartment[] // Relação com departamentos
-  memberFunctions MemberFunction[] // Relação com funções de membros
+  subcategories Subcategory[]   
+  departments CategoryDepartment[] 
+  memberFunctions MemberFunction[]
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
-  @@unique([name, tenantId]) // Uma categoria deve ter nome único dentro de um tenant
+  @@unique([name, tenantId])
 }
 
-// Nova tabela: Subcategorias (ex: Guitarra, Fotógrafo, Recepção)
 model Subcategory {
   id          String               @id @default(cuid())
   name        String
   description String?
   category    Category             @relation(fields: [categoryId], references: [id])
   categoryId  String
-  memberFunctions MemberFunction[] // Relação com funções de membros
+  memberFunctions MemberFunction[] 
+  scheduleMembers ScheduleMember[] 
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
-  @@unique([name, categoryId]) // Uma subcategoria deve ter nome único dentro de uma categoria
+  @@unique([name, categoryId])
 }
 
-// Nova tabela: Relação entre Categorias e Departamentos
 model CategoryDepartment {
   id           String     @id @default(cuid())
   category     Category   @relation(fields: [categoryId], references: [id])
@@ -96,10 +97,9 @@ model CategoryDepartment {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  @@unique([categoryId, departmentId]) // Evita duplicatas
+  @@unique([categoryId, departmentId])
 }
 
-// Nova tabela: Funções específicas de um membro
 model MemberFunction {
   id            String       @id @default(cuid())
   user          User         @relation(fields: [userId], references: [id])
@@ -108,12 +108,64 @@ model MemberFunction {
   categoryId    String
   subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
   subcategoryId String?
-  notes         String?      // Observações adicionais sobre a função
+  notes         String?   
   isActive      Boolean      @default(true)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  @@unique([userId, categoryId, subcategoryId]) // Um usuário só pode ter uma função específica uma vez
+  @@unique([userId, categoryId, subcategoryId]) 
+}
+
+model Schedule {
+  id           String           @id @default(cuid())
+  title        String        
+  description  String?
+  date         DateTime     
+  endDate      DateTime?     
+  department   Department       @relation(fields: [departmentId], references: [id])
+  departmentId String
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  tenantId     String
+  status       ScheduleStatus   @default(DRAFT) 
+  members      ScheduleMember[] 
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([date, departmentId])
+  @@index([tenantId, date])
+}
+
+model ScheduleMember {
+  id            String       @id @default(cuid())
+  schedule      Schedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  scheduleId    String
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+  subcategoryId String?   
+  notes         String? 
+  status        MemberStatus @default(CONFIRMED)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([scheduleId, userId, subcategoryId]) 
+  @@index([userId, scheduleId])
+}
+
+enum ScheduleStatus {
+  DRAFT      
+  PUBLISHED  
+  CONFIRMED 
+  COMPLETED 
+  CANCELLED 
+}
+
+enum MemberStatus {
+  CONFIRMED  
+  PENDING    
+  DECLINED   
+  ABSENT  
 }
 
 model InviteCode {
