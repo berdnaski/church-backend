@@ -10,10 +10,13 @@ import { SubcategoryModule } from './modules/subcategory/subcategory.module';
 import { CategoryDepartmentModule } from './modules/category-department/category-department.module';
 import { MemberFunctionModule } from './modules/member-function/member-function.module';
 import { ScheduleModule } from './modules/schedule/schedule.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     PrismaModule,
     AuthModule,
     TenantModule,
@@ -24,6 +27,7 @@ import { ScheduleModule } from './modules/schedule/schedule.module';
     CategoryDepartmentModule,
     MemberFunctionModule,
     ScheduleModule,
+    NotificationModule,
   ],
 })
 export class AppModule {}

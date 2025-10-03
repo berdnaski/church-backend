@@ -1,14 +1,14 @@
-import { Module } from '@nestjs/common';
-import { PrismaModule } from 'src/shared/prisma/prisma.module';
-
-import { UserRepository } from './user.repository';
+import { Module, forwardRef } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UserController } from './user.controller';
+import { UserRepository } from './user.repository';
+import { PrismaModule } from '../../shared/prisma/prisma.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [PrismaModule],
-  providers: [UserService, UserRepository],
+  imports: [PrismaModule, forwardRef(() => NotificationModule)],
   controllers: [UserController],
-  exports: [UserService],
+  providers: [UserService, UserRepository],
+  exports: [UserService, UserRepository],
 })
 export class UserModule {}

@@ -103,7 +103,7 @@ export class ScheduleController {
     @Param('id') scheduleId: string,
     @Body() createScheduleMemberDto: CreateScheduleMemberDto,
   ) {
-    return this.scheduleService.addMember(scheduleId, req.user.tenantId, createScheduleMemberDto);
+    return this.scheduleService.addMember(scheduleId, req.user.tenantId, createScheduleMemberDto, req.user.id);
   }
 
   @Patch('members/:memberId')

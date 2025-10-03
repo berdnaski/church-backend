@@ -6,6 +6,7 @@ import { CreateScheduleMemberDto } from './dto/create-schedule-member.dto';
 import { UpdateScheduleMemberDto } from './dto/update-schedule-member.dto';
 import { DepartmentService } from '../department/department.service';
 import { PrismaService } from 'src/database/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class ScheduleService {
@@ -13,6 +14,7 @@ export class ScheduleService {
     private scheduleRepository: ScheduleRepository,
     private departmentService: DepartmentService,
     private prisma: PrismaService,
+    private notificationService: NotificationService,
   ) {}
 
   async create(tenantId: string, createScheduleDto: CreateScheduleDto) {
@@ -72,7 +74,25 @@ export class ScheduleService {
       }
     }
 
-    return this.scheduleRepository.update(id, tenantId, updateScheduleDto);
+    const updatedSchedule = await this.scheduleRepository.update(id, tenantId, updateScheduleDto);
+    if (updateScheduleDto.date || updateScheduleDto.title) {
+      const scheduleMembers = await this.prisma.scheduleMember.findMany({
+        where: { scheduleId: id },
+        select: { userId: true }
+      });
+
+      if (scheduleMembers.length > 0) {
+        await this.notificationService.create(tenantId, 'system', {
+          title: 'Alteração na Escala',
+          message: `A escala "${schedule.title}" foi alterada. Verifique os detalhes.`,
+          type: 'SCHEDULE_CHANGE',
+          data: { scheduleId: id },
+          userIds: scheduleMembers.map(sm => sm.userId)
+        });
+      }
+    }
+
+    return updatedSchedule;
   }
 
   async remove(id: string, tenantId: string) {
@@ -80,7 +100,7 @@ export class ScheduleService {
     return this.scheduleRepository.remove(id, tenantId);
   }
 
-  async addMember(scheduleId: string, tenantId: string, createScheduleMemberDto: CreateScheduleMemberDto) {
+  async addMember(scheduleId: string, tenantId: string, createScheduleMemberDto: CreateScheduleMemberDto, assignedByUserId: string) {
     const schedule = await this.findOne(scheduleId, tenantId);
     const user = await this.prisma.user.findFirst({
       where: { 
@@ -99,6 +119,7 @@ export class ScheduleService {
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
+
     const belongsToDepartment = user.roles.some(role => 
       role.departmentId === schedule.department.id
     );
@@ -125,13 +146,22 @@ export class ScheduleService {
       }
     }
     await this.checkScheduleConflicts(
-        createScheduleMemberDto.userId, 
-        schedule.date, 
-        schedule.endDate ?? undefined
+    createScheduleMemberDto.userId,
+    schedule.date,
+    schedule.endDate ?? undefined
     );
 
     try {
-      return await this.scheduleRepository.addMember(scheduleId, createScheduleMemberDto);
+      const result = await this.scheduleRepository.addMember(scheduleId, createScheduleMemberDto);
+
+      await this.notificationService.createScheduleAssignment(
+        tenantId,
+        scheduleId,
+        createScheduleMemberDto.userId,
+        assignedByUserId
+      );
+
+      return result;
     } catch (error) {
       if (error.code === 'P2002') {
         throw new ConflictException('Este usuário já está escalado nesta função para esta escala');
@@ -154,6 +184,7 @@ export class ScheduleService {
     if (!member) {
       throw new NotFoundException('Membro da escala não encontrado');
     }
+
     if (updateScheduleMemberDto.subcategoryId) {
       const subcategoryExists = await this.prisma.categoryDepartment.findFirst({
         where: {
@@ -273,5 +304,9 @@ export class ScheduleService {
         `O usuário já está escalado em outro(s) evento(s) no mesmo período: ${conflictInfo}`
       );
     }
+  }
+
+  async validateScheduleConflicts(userId: string, scheduleDate: Date, scheduleEndDate?: Date) {
+    return this.checkScheduleConflicts(userId, scheduleDate, scheduleEndDate);
   }
 }

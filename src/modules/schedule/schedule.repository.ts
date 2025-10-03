@@ -10,16 +10,16 @@ export class ScheduleRepository {
   constructor(private prisma: PrismaService) {}
 
 async create(tenantId: string, createScheduleDto: CreateScheduleDto) {
-  const { departmentId, ...rest } = createScheduleDto;
-
-  return this.prisma.schedule.create({
-    data: {
-      ...rest,
-      date: new Date(createScheduleDto.date),
-      endDate: createScheduleDto.endDate ? new Date(createScheduleDto.endDate) : null,
-      tenant: { connect: { id: tenantId } },
-      department: { connect: { id: departmentId } },
-    },
+    const { departmentId, ...scheduleData } = createScheduleDto;
+    
+    return this.prisma.schedule.create({
+      data: {
+        ...scheduleData,
+        date: new Date(createScheduleDto.date),
+        endDate: createScheduleDto.endDate ? new Date(createScheduleDto.endDate) : undefined,
+        tenantId,
+        departmentId,
+      },
     select: {
       id: true,
       title: true,
@@ -145,17 +145,15 @@ async create(tenantId: string, createScheduleDto: CreateScheduleDto) {
   }
 
 async addMember(scheduleId: string, createScheduleMemberDto: CreateScheduleMemberDto) {
-  const { userId, subcategoryId, ...rest } = createScheduleMemberDto;
+    const { userId, subcategoryId, ...memberData } = createScheduleMemberDto;
 
-  return this.prisma.scheduleMember.create({
-    data: {
-      ...rest, 
-      schedule: { connect: { id: scheduleId } },
-      user: { connect: { id: userId } },
-      ...(subcategoryId && {
-        subcategory: { connect: { id: subcategoryId } },
-      }),
-    },
+    return this.prisma.scheduleMember.create({
+      data: {
+        ...memberData,
+        scheduleId,
+        userId,
+        subcategoryId: subcategoryId || undefined,
+      },
     select: {
       id: true,
       notes: true,

@@ -18,6 +18,7 @@ model Tenant {
   inviteCodes InviteCode[]
   categories  Category[]  
   schedules   Schedule[] 
+  notifications Notification[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -32,6 +33,9 @@ model User {
   roles     UserRole[]
   memberFunctions MemberFunction[]
   scheduleMembers ScheduleMember[] 
+  notifications Notification[]
+  userNotifications UserNotification[]
+  pushTokens PushToken[]
   isActive  Boolean          @default(true)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -56,7 +60,9 @@ model UserRole {
   userId       String
   department   Department? @relation(fields: [departmentId], references: [id])
   departmentId String?
-  role         String
+  role         UserRoleType @default(MEMBER)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Category {
@@ -153,6 +159,60 @@ model ScheduleMember {
   @@index([userId, scheduleId])
 }
 
+model Notification {
+  id          String               @id @default(cuid())
+  title       String
+  message     String
+  type        NotificationType
+  data        Json?
+  tenant      Tenant               @relation(fields: [tenantId], references: [id])
+  tenantId    String
+  createdBy   User                 @relation(fields: [createdById], references: [id])
+  createdById String
+  users       UserNotification[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([tenantId, type])
+  @@index([createdAt])
+}
+
+model UserNotification {
+  id             String       @id @default(cuid())
+  user           User         @relation(fields: [userId], references: [id])
+  userId         String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId String
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([userId, notificationId])
+  @@index([userId, isRead])
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  token     String   @unique
+  platform  String   // 'ios', 'android', 'web'
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isActive])
+}
+
+enum UserRoleType {
+  ADMIN
+  LEADER
+  COORDINATOR
+  MEMBER
+  VOLUNTEER
+}
+
 enum ScheduleStatus {
   DRAFT      
   PUBLISHED  
@@ -166,6 +226,15 @@ enum MemberStatus {
   PENDING    
   DECLINED   
   ABSENT  
+}
+
+enum NotificationType {
+  SCHEDULE_REMINDER
+  SCHEDULE_ASSIGNMENT
+  SCHEDULE_CHANGE
+  GENERAL_ANNOUNCEMENT
+  DEPARTMENT_UPDATE
+  ROLE_CHANGE
 }
 
 model InviteCode {
